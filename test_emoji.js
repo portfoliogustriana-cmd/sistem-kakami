@@ -1,0 +1,6 @@
+{
+  "name": "Prompt Generator",
+  "description": "A tool to generate optimized AI prompts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

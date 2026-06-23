@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* HIGH FIDELITY MEDIA PRINT STYLINGS */
+@page invoice-page {
+  size: 105mm 148mm; /* exactly A6 size */
+  margin: 0;
+}
+
+@page spk-page {
+  size: auto; /* standard default (A4, etc) */
+  margin: 5mm;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-invoice-container {
+    page: invoice-page;
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 105mm !important;
+    height: 148mm !important;
+    max-width: 105mm !important;
+    max-height: 148mm !important;
+    box-sizing: border-box !important;
+    padding: 5mm 6mm !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+
+  #printable-invoice-container * {
+    visibility: visible;
+  }
+
+  #printable-spk-container {
+    page: spk-page;
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  #printable-spk-container * {
+    visibility: visible;
+  }
+  
+  /* Hide print dialogue controls */
+  .no-print,
+  .no-print-overlay,
+  nav,
+  button,
+  header {
+    display: none !important;
+  }
+}
