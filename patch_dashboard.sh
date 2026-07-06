@@ -1,0 +1,2 @@
+sed -i 's/import { getStoredData, Order, Transaction, OrderItem } from "..\/lib\/storage";/import { getStoredData, Order, Transaction, OrderItem, getStoredMonth, setStoredMonth } from "..\/lib\/storage";/' src/pages/Dashboard.tsx
+sed -i 's/const \[bulan, setBulan\] = useState("2026-06");/const [bulan, setBulanState] = useState(getStoredMonth());\n  const setBulan = (val: string) => {\n    setBulanState(val);\n    setStoredMonth(val);\n  };/' src/pages/Dashboard.tsx

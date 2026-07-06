@@ -1,0 +1,1 @@
+import React from "react"; export default function Kontrak() { return <div>Test Kontrak</div>; }

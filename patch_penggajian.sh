@@ -1,0 +1,1 @@
+sed -i 's/const \[selectedMonth, setSelectedMonth\] = useState<string>("all");/const [selectedMonth, setSelectedMonthState] = useState<string>(getStoredMonth());\n  const setSelectedMonth = (val: string) => {\n    setSelectedMonthState(val);\n    setStoredMonth(val);\n  };/' src/pages/Penggajian.tsx

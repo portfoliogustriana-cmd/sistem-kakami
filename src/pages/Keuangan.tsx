@@ -1,389 +1,158 @@
-import React, { useState, useEffect } from 'react';
-import { Wallet, ArrowDownToLine, ShoppingCart, Factory, Users, BarChart3, PlusSquare, BookOpen, Trash2, Rocket, ArrowUpRight, ArrowDownLeft, Trash } from 'lucide-react';
-import { getStoredData, saveStoredData, Transaction, Order } from '../lib/storage';
+import React, { useState, useEffect } from "react";
+import {
+  Wallet,
+  ArrowDownToLine,
+  ShoppingCart,
+  Factory,
+  Users,
+  BarChart3,
+  PlusSquare,
+  BookOpen,
+  Trash2,
+  Rocket,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Trash,
+  Search,
+} from "lucide-react";
+import {
+  getStoredData,
+  saveStoredData,
+  Transaction,
+  Order,
+  Payroll,
+  Hutang,
+  getStoredMonth,
+  setStoredMonth,
+} from "../lib/storage";
+type Tab =
+  | "kas"
+  | "piutang"
+  | "hutang"
+  | "laporan"
+  | "hpp"
+  | "payroll"
+  | "inventory";
+const TabButton = ({ active, onClick, icon, label }: any) => (
+  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase ${active ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}>
+    {icon}
+    {label}
+  </button>
+);
 
-type Tab = 'kas' | 'piutang' | 'hutang' | 'laporan';
-
-const Keuangan = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('kas');
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [orderItems, setOrderItems] = useState<any[]>([]);
-
-  // Form states
-  const [jenis, setJenis] = useState<'Pemasukan' | 'Pengeluaran'>('Pemasukan');
-  const [kategori, setKategori] = useState('');
-  const [nominal, setNominal] = useState('');
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-  const [keterangan, setKeterangan] = useState('');
-
-  const [bulan, setBulan] = useState('2026-06');
-
-  useEffect(() => {
-    const data = getStoredData();
-    setOrders(data.orders);
-    setTransactions(data.transactions);
-    setOrderItems(data.orderItems);
-  }, []);
-
-  const syncData = (newTx: Transaction[], newOrders = orders, newItems = orderItems) => {
-    setTransactions(newTx);
-    setOrders(newOrders);
-    saveStoredData(newOrders, newItems, newTx);
-  };
-
-  const handleAddTransaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!kategori || !nominal || !tanggal) {
-      alert('Mohon isi kategori, nominal, dan tanggal!');
-      return;
-    }
-
-    const txNominal = parseFloat(nominal);
-    if (isNaN(txNominal) || txNominal <= 0) {
-      alert('Nominal harus angka positif!');
-      return;
-    }
-
-    const newTxItem: Transaction = {
-      id: Date.now(),
-      jenis,
-      kategori,
-      nominal: txNominal,
-      tanggal,
-      keterangan: keterangan || `${jenis} manual - ${kategori}`,
-    };
-
-    const updated = [...transactions, newTxItem];
-    syncData(updated);
-
-    // Reset Form
-    setKategori('');
-    setNominal('');
-    setKeterangan('');
-  };
-
-  const handleDeleteTransaction = (id: number) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-      const updated = transactions.filter((t) => t.id !== id);
-      syncData(updated);
-    }
-  };
-
-  // Filter transactions based on selected month
-  const filteredTransactions = transactions.filter((t) => t.tanggal.startsWith(bulan));
-
-  const masuk = filteredTransactions.filter((t) => t.jenis === 'Pemasukan').reduce((acc, curr) => acc + curr.nominal, 0);
-  const keluar = filteredTransactions.filter((t) => t.jenis === 'Pengeluaran').reduce((acc, curr) => acc + curr.nominal, 0);
-  const saldo = masuk - keluar;
-
-  // Receivables calculated from orders of current month that are DP/Not paid in full
-  const filteredOrders = orders.filter((o) => o.tanggal_order.startsWith(bulan));
-  const piutangList = filteredOrders.filter((o) => o.total_harga > o.dp);
-  const totalPiutang = piutangList.reduce((acc, curr) => acc + (curr.total_harga - curr.dp), 0);
-
+const HighlightCard = ({
+  title,
+  amount,
+  subtitle,
+  trend,
+  trendLabel,
+  icon: Icon,
+  colorClass = "bg-white text-black border-black",
+  color,
+}: any) => {
+  const finalColorClass = color ? `bg-white text-black border-black ${color}` : colorClass;
   return (
-    <div className="p-4 sm:p-8 w-full max-w-7xl mx-auto flex-grow flex flex-col gap-6">
-      {/* Tab bar */}
-      <div className="w-full relative z-10 pb-2 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 flex-wrap gap-4">
-        <nav className="flex overflow-x-auto gap-2 hide-scrollbar">
-          <TabButton active={activeTab === 'kas'} onClick={() => setActiveTab('kas')} icon={<Wallet className="w-4 h-4 text-emerald-500" />} label="Kas & Jurnal" />
-          <TabButton active={activeTab === 'piutang'} onClick={() => setActiveTab('piutang')} icon={<ArrowDownToLine className="w-4 h-4 text-blue-500" />} label="Pendapatan & Piutang Dagang" />
-          <TabButton active={activeTab === 'laporan'} onClick={() => setActiveTab('laporan')} icon={<BarChart3 className="w-4 h-4 text-indigo-500" />} label="Laporan Laba-Rugi" />
-        </nav>
-
-        {/* Month Selector */}
-        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-          <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 pl-2 uppercase tracking-wide">Periode:</label>
-          <input
-            type="month"
-            value={bulan}
-            onChange={(e) => setBulan(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 px-3 py-1.5 rounded-xl border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 transition-colors"
-          />
+    <div className={`p-4 sm:p-6 rounded-2xl border ${finalColorClass} flex flex-col justify-between shadow-sm`}>
+      <div className="flex justify-between items-start mb-4 gap-2">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider opacity-80 truncate">{title}</h4>
+          <h3 className="text-xl sm:text-2xl font-black font-mono mt-1 truncate">
+            {typeof amount === "number" ? `Rp ${amount.toLocaleString("id-ID")}` : amount}
+          </h3>
+          {subtitle && <p className="text-[9px] sm:text-[10px] font-bold mt-1 opacity-75">{subtitle}</p>}
         </div>
-      </div>
-
-      <div className="flex-grow w-full max-w-full overflow-hidden">
-        {activeTab === 'kas' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Highlights */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <HighlightCard title="Total Pemasukan" amount={masuk} color="border-l-emerald-500" />
-              <HighlightCard title="Total Pengeluaran" amount={keluar} color="border-l-rose-400" />
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-700 p-5 rounded-3xl shadow-lg border-l-8 border-l-indigo-400 hover:-translate-y-1 transition-all duration-300">
-                <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-300 uppercase tracking-wider">Net Cash / Saldo</h3>
-                <p className="text-2xl font-black text-white mt-2 tracking-tight">Rp {saldo.toLocaleString('id-ID')}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-              {/* Form Input */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 space-y-4">
-                <h2 className="text-base font-extrabold border-b pb-3 border-slate-100 dark:border-slate-700 text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                  <PlusSquare className="w-4 h-4 text-slate-500" /> Input Kas Manual
-                </h2>
-                <form className="flex flex-col gap-3.5" onSubmit={handleAddTransaction}>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wide block mb-1">Jenis Transaksi</label>
-                    <select
-                      value={jenis}
-                      onChange={(e) => setJenis(e.target.value as any)}
-                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2.5 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-slate-900 transition-all text-slate-800 dark:text-slate-200"
-                    >
-                      <option value="Pemasukan">Pemasukan (IN)</option>
-                      <option value="Pengeluaran">Pengeluaran (OUT)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wide block mb-1">Kategori Biaya</label>
-                    <input
-                      placeholder="e.g. Bahan Baku, Gaji, ATK, Listrik"
-                      value={kategori}
-                      onChange={(e) => setKategori(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-slate-900 transition-all font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wide block mb-1">Nominal Rupiah</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 500000"
-                      value={nominal}
-                      onChange={(e) => setNominal(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-slate-900 transition-all font-bold font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wide block mb-1">Tanggal</label>
-                    <input
-                      type="date"
-                      value={tanggal}
-                      onChange={(e) => setTanggal(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-slate-900 transition-all font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wide block mb-1">Keterangan Deskriptif</label>
-                    <textarea
-                      placeholder="Keterangan tambahan..."
-                      rows={2}
-                      value={keterangan}
-                      onChange={(e) => setKeterangan(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-slate-900 transition-all font-semibold"
-                    />
-                  </div>
-                  <button className="w-full bg-slate-950 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white py-3 rounded-xl font-extrabold text-xs uppercase tracking-widest transition-all mt-2 flex items-center justify-center shadow-lg shadow-black/10">
-                    Simpan Transaksi
-                  </button>
-                </form>
-              </div>
-
-              {/* Jurnal */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 xl:col-span-2 space-y-4">
-                <div className="flex justify-between items-center border-b pb-3 border-slate-100 dark:border-slate-700">
-                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-emerald-500" /> Jurnal Arus Kas (GL) - Periode {bulan}
-                  </h2>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-700">
-                        <th className="p-4 font-extrabold text-left rounded-tl-xl w-32">Tanggal</th>
-                        <th className="p-4 font-extrabold text-center w-20">Arus</th>
-                        <th className="p-4 font-extrabold">Kategori / Deskripsi</th>
-                        <th className="p-4 font-extrabold text-right">Nominal</th>
-                        <th className="p-4 font-extrabold text-center rounded-tr-xl w-24">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {filteredTransactions.map((t) => (
-                        <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80">
-                          <td className="p-4 font-mono text-xs text-slate-500 text-left">{t.tanggal}</td>
-                          <td className="p-4 text-center">
-                            {t.jenis === 'Pemasukan' ? (
-                              <span className="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 px-2 py-0.5 rounded-md text-[9px] font-black tracking-widest inline-flex items-center gap-0.5">
-                                <ArrowDownLeft size={10} /> IN
-                              </span>
-                            ) : (
-                              <span className="bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-450 border border-rose-200 dark:border-rose-900/50 px-2 py-0.5 rounded-md text-[9px] font-black tracking-widest inline-flex items-center gap-0.5">
-                                <ArrowUpRight size={10} /> OUT
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase">{t.kategori}</div>
-                            {t.keterangan && <div className="text-[10px] text-slate-400 font-medium">{t.keterangan}</div>}
-                          </td>
-                          <td className="p-4 text-right font-black text-slate-900 dark:text-slate-200 font-mono text-xs">Rp {t.nominal.toLocaleString('id-ID')}</td>
-                          <td className="p-4 text-center">
-                            <button
-                              onClick={() => handleDeleteTransaction(t.id)}
-                              className="text-[9px] bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 dark:border-rose-950/50 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center w-max mx-auto transition-all"
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" /> Hapus
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredTransactions.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="p-12 text-center text-slate-400 dark:text-slate-500 font-medium italic">
-                            Belum ada arus kas tercatat pada bulan ini.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Piutang */}
-        {activeTab === 'piutang' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <HighlightCard title="Total Piutang Dagang Aktif" amount={totalPiutang} color="border-l-blue-500" />
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-md border border-slate-200/60 dark:border-slate-700/60 border-l-8 border-l-emerald-500 flex flex-col justify-center">
-                <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Status Kolektibilitas</h3>
-                <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-2">Semua Aman Terkendali</p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 space-y-4">
-              <h2 className="text-base font-extrabold border-b pb-3 border-slate-100 dark:border-slate-700 text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                <ArrowDownToLine className="w-4 h-4 text-blue-500" /> Daftar Piutang Invoice Belum Lunas (Bulan {bulan})
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-700">
-                      <th className="p-4 font-extrabold">Invoice / Pelanggan</th>
-                      <th className="p-4 font-extrabold w-36">Nama Order</th>
-                      <th className="p-4 font-extrabold text-right">Total Tagihan</th>
-                      <th className="p-4 font-extrabold text-right">Sudah Dibayar (DP)</th>
-                      <th className="p-4 font-extrabold text-right text-rose-500">Sisa Piutang</th>
-                      <th className="p-4 font-extrabold text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {piutangList.map((o) => (
-                      <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80">
-                        <td className="p-4 text-xs">
-                          <div className="font-extrabold text-slate-900 dark:text-slate-100">{o.invoice_no}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase">{o.nama_konsumen}</div>
-                        </td>
-                        <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300 max-w-[150px] truncate">{o.nama_order}</td>
-                        <td className="p-4 text-right font-bold text-slate-800 dark:text-slate-200 font-mono text-xs">Rp {o.total_harga.toLocaleString('id-ID')}</td>
-                        <td className="p-4 text-right font-semibold text-emerald-600 dark:text-emerald-400 font-mono text-xs">Rp {o.dp.toLocaleString('id-ID')}</td>
-                        <td className="p-4 text-right font-black text-rose-600 dark:text-rose-450 font-mono text-xs">Rp {(o.total_harga - o.dp).toLocaleString('id-ID')}</td>
-                        <td className="p-4 text-center">
-                          <span className="bg-orange-50 text-orange-600 border border-orange-200 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-900 px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest">
-                            DP PARTIAL
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {piutangList.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-12 text-center text-slate-400 dark:text-slate-500 font-medium italic">
-                          Hebat! Seluruh pesanan di bulan ini telah lunas terjual.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Laporan Laba Rugi */}
-        {activeTab === 'laporan' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-4xl mx-auto space-y-8">
-              <div className="text-center border-b pb-5 border-slate-150 dark:border-slate-700">
-                <h2 className="text-lg font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">KAKAMI CONVECTION ERP</h2>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">Lembat Laba Rugi (P/L Statement)</h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-1">Periode Bulan: {bulan}</p>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest border-b pb-1">1. Pendapatan Usaha (Revenue)</h4>
-                  <div className="mt-3 space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-slate-600 dark:text-slate-400 pl-4">Penerimaan Pelunasan & DP Pelanggan</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">Rp {masuk.toLocaleString('id-ID')}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs border-t border-slate-100 dark:border-slate-700 pt-2 font-black">
-                      <span className="text-slate-900 dark:text-white pl-4">TOTAL PENDAPATAN</span>
-                      <span className="text-indigo-600 dark:text-indigo-400 font-mono">Rp {masuk.toLocaleString('id-ID')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest border-b pb-1">2. Biaya & Pengeluaran (Expenses)</h4>
-                  <div className="mt-3 space-y-2">
-                    {/* Unique active categories of expenses */}
-                    {Array.from(new Set(filteredTransactions.filter((t) => t.jenis === 'Pengeluaran').map((t) => t.kategori))).map((cat) => {
-                      const amount = filteredTransactions.filter((t) => t.jenis === 'Pengeluaran' && t.kategori === cat).reduce((sum, current) => sum + current.nominal, 0);
-                      return (
-                        <div key={cat} className="flex justify-between items-center text-xs text-slate-600 dark:text-slate-400 pl-4 uppercase">
-                          <span>Biaya {cat}</span>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">Rp {amount.toLocaleString('id-ID')}</span>
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between items-center text-xs border-t border-slate-100 dark:border-slate-700 pt-2 font-black">
-                      <span className="text-slate-900 dark:text-white pl-4">TOTAL BIAYA UTAMA</span>
-                      <span className="text-rose-500 dark:text-rose-450 font-mono">Rp {keluar.toLocaleString('id-ID')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t-2 border-double border-slate-200 dark:border-slate-700/60 pt-6">
-                  <div className={`p-4 rounded-2xl flex justify-between items-center ${saldo >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-800/80 dark:text-rose-400'}`}>
-                    <div>
-                      <h4 className="text-sm font-black uppercase tracking-wider">{saldo >= 0 ? 'LABA BERSIH OPERASIONAL' : 'RUGI OPERASIONAL'}</h4>
-                      <p className="text-[10px] opacity-80 mt-1">Laba Bersih dihitung dari Total IN dikurangi Total OUT terkini.</p>
-                    </div>
-                    <span className="text-xl font-black font-mono">Rp {saldo.toLocaleString('id-ID')}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {Icon && (
+          <div className="p-2 sm:p-3 bg-black/5 rounded-xl flex-shrink-0">
+            <Icon size={18} className="sm:w-5 sm:h-5 text-black" />
           </div>
         )}
       </div>
+      {trend && (
+        <div className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded bg-white/50 w-fit ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+          {trend === 'up' ? '↗' : '↘'} {trendLabel}
+        </div>
+      )}
     </div>
   );
 };
 
-const TabButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`whitespace-nowrap flex items-center justify-center gap-2 px-5 py-3 text-xs rounded-full transition-all border ${
-        active
-          ? 'text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-sm border-slate-200 dark:border-slate-700 font-bold'
-          : 'text-slate-500 hover:bg-white border-transparent font-semibold dark:hover:bg-slate-800'
-      }`}
-    >
-      {icon} {label}
-    </button>
-  );
+const Keuangan = () => {
+  const [activeTab, setActiveTab] = useState<Tab>("kas");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
+  const [hutangs, setHutangs] = useState<Hutang[]>([]); 
+/* Form states */
+ const [jenis, setJenis] = useState<'Pemasukan' | 'Pengeluaran'>('Pemasukan'); const [kategori, setKategori] = useState(''); const [nominal, setNominal] = useState(''); const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]); const [keterangan, setKeterangan] = useState(''); const [bulan, setBulanState] = useState(getStoredMonth());
+  const setBulan = (val: string) => {
+    setBulanState(val);
+    setStoredMonth(val);
+  }; const [searchKas, setSearchKas] = useState(''); const [filterKategoriKas, setFilterKategoriKas] = useState('SEMUA'); const [searchPiutang, setSearchPiutang] = useState(''); const [searchHutang, setSearchHutang] = useState(''); const [selectedHppOrderId, setSelectedHppOrderId] = useState<number | ''>(''); const [hppResult, setHppResult] = useState<any>(null); 
+/* Modal States */
+ const [isHutangModalOpen, setIsHutangModalOpen] = useState(false); const [hutangForm, setHutangForm] = useState<Partial<Hutang>>({}); const [isTxModalOpen, setIsTxModalOpen] = useState(false); const [txForm, setTxForm] = useState<Partial<Transaction>>({}); useEffect(() => { const data = getStoredData(); setOrders(data.orders); setTransactions(data.transactions); setOrderItems(data.orderItems); setPayrolls(data.payroll); setHutangs(data.hutang); }, []); const syncData = (newTx: Transaction[], newOrders = orders, newItems = orderItems, newPayrolls = payrolls, newHutangs = hutangs) => { setTransactions(newTx); setOrders(newOrders); setPayrolls(newPayrolls); setHutangs(newHutangs); saveStoredData(newOrders, newItems, newTx, newPayrolls, newHutangs); }; const handleAddTransaction = (e: React.FormEvent) => { e.preventDefault(); if (!kategori || !nominal || !tanggal) { alert('Mohon isi kategori, nominal, dan tanggal!'); return; } const txNominal = parseFloat(nominal); if (isNaN(txNominal) || txNominal <= 0) { alert('Nominal harus angka positif!'); return; } const newTxItem: Transaction = { id: Date.now(), jenis, kategori, nominal: txNominal, tanggal, keterangan: keterangan || `${jenis} manual - ${kategori}`, }; const updated = [...transactions, newTxItem]; syncData(updated); 
+/* Reset Form setKategori(''); setNominal(''); setKeterangan(''); */
+ }; const handleSaveTx = (e: React.FormEvent) => { e.preventDefault(); if (!txForm.kategori || !txForm.nominal || !txForm.tanggal) { alert('Data tidak lengkap!'); return; } const txNominal = typeof txForm.nominal === 'string' ? parseFloat(txForm.nominal) : txForm.nominal; if (txForm.id) { const updated = transactions.map(t => t.id === txForm.id ? { ...t, ...txForm, nominal: txNominal } as Transaction : t); syncData(updated); } setIsTxModalOpen(false); }; const handleSaveHutang = (e: React.FormEvent) => { e.preventDefault(); if (!hutangForm.nama_supplier || !hutangForm.nominal || !hutangForm.jatuh_tempo) return; const nominal = typeof hutangForm.nominal === 'string' ? parseFloat(hutangForm.nominal) : hutangForm.nominal; if (hutangForm.id) { const updated = hutangs.map(h => h.id === hutangForm.id ? { ...h, ...hutangForm, nominal } as Hutang : h); syncData(transactions, orders, orderItems, payrolls, updated); } else { const newHutang: Hutang = { id: Date.now(), nama_supplier: hutangForm.nama_supplier, nominal: nominal, jatuh_tempo: hutangForm.jatuh_tempo || new Date().toISOString().split('T')[0], status: hutangForm.status || 'Belum Lunas', keterangan: hutangForm.keterangan || '' }; syncData(transactions, orders, orderItems, payrolls, [...hutangs, newHutang]); } setIsHutangModalOpen(false); }; const handleDeleteHutang = (id: number) => { if (window.confirm('Apakah Anda yakin ingin menghapus tagihan ini?')) { const updated = hutangs.filter(h => h.id !== id); syncData(transactions, orders, orderItems, payrolls, updated); } }; const handleDeleteTransaction = (id: number) => { if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) { const updated = transactions.filter((t) => t.id !== id); syncData(updated); } }; /* Filter transactions based on selected month */
+ const safeTransactions = transactions || []; const safeOrders = orders || []; const safeHutangs = hutangs || [];
+ const filteredTransactions = safeTransactions .filter((t) => t?.tanggal?.startsWith(bulan)) .filter((t) => t?.kategori?.toLowerCase()?.includes(searchKas.toLowerCase()) || (t?.keterangan || '')?.toLowerCase()?.includes(searchKas.toLowerCase()) ) .filter((t) => filterKategoriKas === 'SEMUA' || t?.jenis === filterKategoriKas); const masuk = filteredTransactions.filter((t) => t?.jenis === 'Pemasukan').reduce((acc, curr) => acc + (curr?.nominal || 0), 0); const keluar = filteredTransactions.filter((t) => t?.jenis === 'Pengeluaran').reduce((acc, curr) => acc + (curr?.nominal || 0), 0); const saldo = masuk - keluar; 
+/* Receivables calculated from orders of current month that are DP/Not paid in full */
+ const filteredOrders = safeOrders.filter((o) => o?.tanggal_order?.startsWith(bulan)); const piutangList = filteredOrders .filter((o) => (o?.total_harga || 0) > (o?.dp || 0)) .filter((o) => o?.invoice_no?.toLowerCase()?.includes(searchPiutang.toLowerCase()) || o?.nama_konsumen?.toLowerCase()?.includes(searchPiutang.toLowerCase()) || o?.nama_order?.toLowerCase()?.includes(searchPiutang.toLowerCase()) ); const totalPiutang = piutangList.reduce((acc, curr) => acc + ((curr?.total_harga || 0) - (curr?.dp || 0)), 0); 
+/* Hutang List */
+ const hutangList = safeHutangs.filter(h => h?.nama_supplier?.toLowerCase()?.includes(searchHutang.toLowerCase()) || (h?.keterangan || '')?.toLowerCase()?.includes(searchHutang.toLowerCase()) ); return ( <div className="p-4 sm:p-8 w-full max-w-7xl mx-auto flex flex-col gap-6"> {/* Tab bar */} <div className="w-full relative z-10 pb-2 flex items-center justify-between border-b border-black flex-wrap gap-4"> <nav className="flex overflow-x-auto gap-2 hide-scrollbar pb-2"> <TabButton active={activeTab === 'kas'} onClick={() => setActiveTab('kas')} icon={<Wallet className="w-4 h-4 text-black" />} label="Kas & Bank" /> <TabButton active={activeTab === 'piutang'} onClick={() => setActiveTab('piutang')} icon={<ArrowDownToLine className="w-4 h-4 text-black" />} label="Piutang (AR)" /> <TabButton active={activeTab === 'hutang'} onClick={() => setActiveTab('hutang')} icon={<ShoppingCart className="w-4 h-4 text-black" />} label="Utang (AP)" /> <TabButton active={activeTab === 'hpp'} onClick={() => setActiveTab('hpp')} icon={<Factory className="w-4 h-4 text-black" />} label="Biaya & HPP" /> <TabButton active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} icon={<Rocket className="w-4 h-4 text-black" />} label="Nilai Inventaris" /> <TabButton active={activeTab === 'laporan'} onClick={() => setActiveTab('laporan')} icon={<BarChart3 className="w-4 h-4 text-black" />} label="Dashboard & GL" /> </nav> {/* Month Selector */} <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-black"> <label className="text-[10px] font-black text-black pl-2 uppercase tracking-wide">Periode:</label> <input type="month" value={bulan} onChange={(e) => setBulan(e.target.value)} className="bg-white hover:bg-white px-3 py-1.5 rounded-xl border-none outline-none text-xs font-bold text-black transition-colors" /> </div> </div> <div className="flex-grow w-full max-w-full overflow-hidden"> {activeTab === 'kas' && ( <div className="space-y-6 animate-in fade-in duration-300"> {/* Highlights */}              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <HighlightCard
+                  title="Total Pemasukan"
+                  amount={masuk}
+                  color="border-l-4 border-l-emerald-500"
+                  icon={ArrowDownLeft}
+                />
+                <HighlightCard
+                  title="Total Pengeluaran"
+                  amount={keluar}
+                  color="border-l-4 border-l-rose-400"
+                  icon={ArrowUpRight}
+                />
+                <div className="bg-gradient-to-br from-black to-black p-5 rounded-3xl shadow-lg border-l-8 border-l-indigo-400 hover:-translate-y-1 transition-all duration-300">
+                  <h3 className="text-xs font-extrabold text-white/80 uppercase tracking-wider">
+                    Net Cash / Saldo
+                  </h3>
+                  <p className="text-2xl font-black text-white mt-2 tracking-tight">
+                    Rp {saldo.toLocaleString("id-ID")}
+                  </p>
+                </div>
+              </div> <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start"> {/* Form Input */} <div className="bg-white p-6 rounded-3xl shadow-xl border border-black space-y-4"> <h2 className="text-base font-extrabold border-b pb-3 border-black text-black uppercase tracking-wide flex items-center gap-2"> <PlusSquare className="w-4 h-4 text-black" /> Input Kas Manual </h2> <form className="flex flex-col gap-3.5" onSubmit={handleAddTransaction}> <div> <label className="text-[10px] font-extrabold text-black uppercase tracking-wide block mb-1">Jenis Transaksi</label> <select value={jenis} onChange={(e) => setJenis(e.target.value as any)} className="w-full bg-white border border-black p-2.5 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-black transition-all text-black" > <option value="Pemasukan">Pemasukan (IN)</option> <option value="Pengeluaran">Pengeluaran (OUT)</option> </select> </div> <div> <label className="text-[10px] font-extrabold text-black uppercase tracking-wide block mb-1">Kategori Biaya</label> <input placeholder="e.g. Bahan Baku, Gaji, ATK, Listrik" value={kategori} onChange={(e) => setKategori(e.target.value)} className="w-full bg-white border border-black p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-black transition-all font-semibold" /> </div> <div> <label className="text-[10px] font-extrabold text-black uppercase tracking-wide block mb-1">Nominal Rupiah</label> <input type="number" placeholder="e.g. 500000" value={nominal} onChange={(e) => setNominal(e.target.value)} className="w-full bg-white border border-black p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-black transition-all font-bold font-mono" /> </div> <div> <label className="text-[10px] font-extrabold text-black uppercase tracking-wide block mb-1">Tanggal</label> <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} className="w-full bg-white border border-black p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-black transition-all font-bold" /> </div> <div> <label className="text-[10px] font-extrabold text-black uppercase tracking-wide block mb-1">Keterangan Deskriptif</label> <textarea placeholder="Keterangan tambahan..." rows={2} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} className="w-full bg-white border border-black p-2.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-black transition-all font-semibold" /> </div> <button className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-xl font-extrabold text-xs uppercase tracking-widest transition-all mt-2 flex items-center justify-center shadow-lg shadow-black/10"> Simpan Transaksi </button> </form> </div> {/* Jurnal */} <div className="bg-white p-6 rounded-3xl shadow-xl border border-black xl:col-span-2 space-y-4"> <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 border-black gap-3"> <h2 className="text-base font-extrabold text-black uppercase tracking-wide flex items-center gap-2"> <BookOpen className="w-4 h-4 text-black" /> Jurnal Arus Kas (GL) - Periode {bulan} </h2> <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto"> <div className="bg-white p-2 rounded-xl flex items-center gap-1.5 border border-black shadow-inner w-full sm:w-60"> <Search size={14} className="text-black" /> <input type="text" placeholder="Cari deskripsi / kategori..." value={searchKas} onChange={(e) => setSearchKas(e.target.value)} className="bg-transparent border-none outline-none text-xs text-black w-full placeholder-slate-400 font-semibold" /> </div> <div className="bg-white p-2 rounded-xl border border-black shadow-inner w-full sm:w-auto"> <select value={filterKategoriKas} onChange={(e) => setFilterKategoriKas(e.target.value)} className="bg-transparent border-none outline-none text-xs text-black font-semibold cursor-pointer px-1" > <option value="SEMUA" className="text-black">Semua Arus</option> <option value="Pemasukan" className="text-black">Pemasukan (IN)</option> <option value="Pengeluaran" className="text-black">Pengeluaran (OUT)</option> </select> </div> </div> </div> <div className="overflow-x-auto"> <table className="w-full text-sm text-left border-collapse"> <thead> <tr className="bg-white text-black text-[10px] uppercase tracking-widest border-b border-black"> <th className="p-4 font-extrabold text-left rounded-tl-xl w-32">Tanggal</th> <th className="p-4 font-extrabold text-center w-20">Arus</th> <th className="p-4 font-extrabold">Kategori / Deskripsi</th> <th className="p-4 font-extrabold text-right">Nominal</th> <th className="p-4 font-extrabold text-center rounded-tr-xl w-24">Aksi</th> </tr> </thead> <tbody className="divide-y divide-slate-100"> {filteredTransactions.map((t) => ( <tr key={t.id} className="hover:bg-white"> <td className="p-4 font-mono text-xs text-black text-left">{t.tanggal}</td> <td className="p-4 text-center"> {t.jenis === 'Pemasukan' ? ( <span className="bg-white text-black border border-black px-2 py-0.5 rounded-md text-[9px] font-black tracking-widest inline-flex items-center gap-0.5"> <ArrowDownLeft size={10} /> IN </span> ) : ( <span className="bg-white text-black border border-black px-2 py-0.5 rounded-md text-[9px] font-black tracking-widest inline-flex items-center gap-0.5"> <ArrowUpRight size={10} /> OUT </span> )} </td> <td className="p-4"> <div className="font-bold text-black text-xs uppercase">{t.kategori}</div> {t.keterangan && <div className="text-[10px] text-black font-medium">{t.keterangan}</div>} </td> <td className="p-4 text-right font-black text-black font-mono text-xs">Rp {t.nominal.toLocaleString('id-ID')}</td> <td className="p-4 text-center"> <div className="flex justify-center gap-2"> <button onClick={() => { setTxForm(t); setIsTxModalOpen(true); }} className="text-[9px] bg-white text-black hover:bg-black hover:text-white border border-black px-3 py-1.5 rounded-lg font-bold flex items-center justify-center transition-all" > Edit </button> <button onClick={() => handleDeleteTransaction(t.id)} className="text-[9px] bg-white text-black hover:bg-black hover:text-white border border-black px-3 py-1.5 rounded-lg font-bold flex items-center justify-center transition-all" > <Trash2 className="w-3 h-3" /> </button> </div> </td> </tr> ))} {filteredTransactions.length === 0 && ( <tr> <td colSpan={5} className="p-12 text-center text-black font-medium italic"> Belum ada arus kas tercatat pada bulan ini. </td> </tr> )} </tbody> </table> </div> </div> </div> </div> )} {/* Tab Piutang */} {activeTab === 'piutang' && ( <div className="space-y-6 animate-in fade-in duration-300">            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <HighlightCard
+                title="Total Piutang Dagang Aktif"
+                amount={totalPiutang}
+                color="border-l-4 border-l-blue-500"
+                icon={ArrowDownToLine}
+              />
+              <div className="bg-white p-5 rounded-3xl shadow-md border border-black border-l-8 border-l-emerald-500 flex flex-col justify-center">
+                <h3 className="text-xs font-extrabold text-black uppercase tracking-wider">
+                  Status Kolektibilitas
+                </h3>
+                <p className="text-sm font-black text-black mt-2">Semua Aman Terkendali</p>
+              </div>
+            </div> <div className="bg-white p-6 rounded-3xl shadow-xl border border-black space-y-4"> <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 border-black gap-3"> <h2 className="text-base font-extrabold text-black uppercase tracking-wide flex items-center gap-2"> <ArrowDownToLine className="w-4 h-4 text-black" /> Daftar Piutang Invoice Belum Lunas (Bulan {bulan}) </h2> <div className="bg-white p-2 rounded-xl flex items-center gap-1.5 border border-black shadow-inner w-full sm:w-60"> <Search size={14} className="text-black" /> <input type="text" placeholder="Cari invoice atau nama..." value={searchPiutang} onChange={(e) => setSearchPiutang(e.target.value)} className="bg-transparent border-none outline-none text-xs text-black w-full placeholder-slate-400 font-semibold" /> </div> </div> <div className="overflow-x-auto"> <table className="w-full text-sm text-left border-collapse"> <thead> <tr className="bg-white text-black text-[10px] uppercase tracking-widest border-b border-black"> <th className="p-4 font-extrabold">Invoice / Pelanggan</th> <th className="p-4 font-extrabold w-36">Nama Order</th> <th className="p-4 font-extrabold text-right">Total Tagihan</th> <th className="p-4 font-extrabold text-right">Sudah Dibayar (DP)</th> <th className="p-4 font-extrabold text-right text-black">Sisa Piutang</th> <th className="p-4 font-extrabold text-center">Status</th> </tr> </thead> <tbody className="divide-y divide-slate-100"> {piutangList.map((o) => ( <tr key={o.id} className="hover:bg-white"> <td className="p-4 text-xs"> <div className="font-extrabold text-black">{o.invoice_no}</div> <div className="text-[10px] text-black font-bold uppercase">{o.nama_konsumen}</div> </td> <td className="p-4 text-xs font-bold text-black max-w-[150px] truncate">{o.nama_order}</td> <td className="p-4 text-right font-bold text-black font-mono text-xs">Rp {o.total_harga.toLocaleString('id-ID')}</td> <td className="p-4 text-right font-semibold text-black font-mono text-xs">Rp {o.dp.toLocaleString('id-ID')}</td> <td className="p-4 text-right font-black text-black font-mono text-xs">Rp {(o.total_harga - o.dp).toLocaleString('id-ID')}</td> <td className="p-4 text-center"> <span className="bg-white text-black border border-black px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest"> DP PARTIAL </span> </td> </tr> ))} {piutangList.length === 0 && ( <tr> <td colSpan={6} className="p-12 text-center text-black font-medium italic"> Hebat! Seluruh pesanan di bulan ini telah lunas terjual. </td> </tr> )} </tbody> </table> </div> </div> </div> )} {/* Tab Hutang */} {activeTab === 'hutang' && ( <div className="space-y-6 animate-in fade-in duration-300"> <div className="bg-white p-8 rounded-3xl shadow-xl border border-black"> <div className="flex items-center gap-3 mb-6"> <div className="p-3 bg-white rounded-2xl text-black"> <ShoppingCart className="w-6 h-6" /> </div> <div> <h2 className="text-xl font-black text-black tracking-tight">Utang Usaha & Pembelian Bahan (AP)</h2> <p className="text-sm font-medium text-black">Manajemen tagihan supplier kain, aksesoris, dan operasional.</p> </div> </div> <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> <div className="border border-black rounded-2xl p-6 bg-white"> <h3 className="text-xs font-black uppercase text-black mb-4">Input Tagihan Baru</h3> <p className="text-xs text-black font-medium pb-4">Fitur ini digunakan untuk mencatat dan merangkum pembelian barang pada pemasok menggunakan Term of Payment (TOP).</p> <button onClick={() => { setHutangForm({ nama_supplier: '', nominal: '', jatuh_tempo: new Date().toISOString().split('T')[0], keterangan: '', status: 'Belum Lunas' }); setIsHutangModalOpen(true); }} className="w-full py-3 rounded-xl bg-black text-white hover:bg-black font-bold text-xs">TAMBAH TAGIHAN PEMASOK</button> </div> <div className="border border-black rounded-2xl p-0 overflow-hidden flex flex-col"> <div className="p-4 border-b border-black flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/50"> <span className="font-bold text-sm">Daftar Tagihan Berjalan</span> <div className="bg-white p-2 rounded-xl flex items-center gap-1.5 border border-black shadow-inner w-full sm:w-48"> <Search size={14} className="text-black" /> <input type="text" placeholder="Cari tagihan..." value={searchHutang} onChange={(e) => setSearchHutang(e.target.value)} className="bg-transparent border-none outline-none text-xs text-black w-full placeholder-slate-400 font-semibold" /> </div> </div> {hutangList.length === 0 ? ( <div className="p-8 text-center text-black text-xs italic">Belum ada tagihan berjalan yang sesuai.</div> ) : ( <div className="divide-y divide-slate-100 overflow-y-auto max-h-96"> {hutangList.map(h => ( <div key={h.id} className="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 hover:bg-white"> <div> <p className="font-bold text-xs text-black uppercase">{h.nama_supplier}</p> <p className="text-[10px] text-black">{h.keterangan}</p> <p className="text-[10px] font-semibold text-black mt-1">Jatuh Tempo: {h.jatuh_tempo}</p> </div> <div className="flex flex-col sm:items-end gap-2"> <div className="flex items-center justify-between sm:justify-end gap-3 w-full"> <p className="font-mono font-black text-xs text-black">Rp {h.nominal.toLocaleString('id-ID')}</p> {h.status === 'Belum Lunas' ? ( <button onClick={() => { if(window.confirm('Tandai tagihan ini lunas?')) { const updated = hutangs.map(hx => hx.id === h.id ? { ...hx, status: 'Lunas' as const } : hx); syncData(transactions, orders, orderItems, payrolls, updated); } }} className="text-[9px] bg-white text-black px-2 py-1 rounded font-bold uppercase hover:bg-white transition-colors">Belum Lunas</button> ) : ( <span className="text-[9px] bg-white text-black px-2 py-1 rounded font-bold uppercase">Lunas</span> )} </div> <div className="flex justify-end gap-2"> <button onClick={() => { setHutangForm(h); setIsHutangModalOpen(true); }} className="text-[9px] bg-white text-black hover:bg-black/10 px-3 py-1.5 rounded font-bold uppercase transition-colors">Edit</button> <button onClick={() => handleDeleteHutang(h.id)} className="text-[9px] bg-white text-black hover:bg-white px-3 py-1.5 rounded font-bold uppercase flex items-center transition-colors"><Trash2 className="w-3 h-3 mr-1" /> Hapus</button> </div> </div> </div> ))} </div> )} </div> </div> </div> </div> )} {/* Tab HPP */} {activeTab === 'hpp' && ( <div className="space-y-6 animate-in fade-in duration-300"> <div className="bg-white p-8 rounded-3xl shadow-xl border border-black"> <div className="flex items-center gap-3 mb-6"> <div className="p-3 bg-white text-black"> <Factory className="w-6 h-6" /> </div> <div> <h2 className="text-xl font-black text-black tracking-tight">Kalkulator HPP & Job Order Costing</h2> <p className="text-sm font-medium text-black">Simulasi dan perhitungan Harga Pokok Produksi per PO / Artikel.</p> </div> </div> <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"> <div className="md:col-span-1 border border-black bg-white p-5 flex flex-col justify-between"> <div> <h3 className="text-[10px] font-black uppercase text-black mb-4">Pilih Project Untuk Dihitung HPP</h3> <select value={selectedHppOrderId} onChange={(e) => setSelectedHppOrderId(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2.5 rounded-xl border border-black bg-white text-xs font-bold outline-none mb-4 text-black" > <option value="">-- Pilih SPK --</option> {orders.map(o => ( <option key={o.id} value={o.id}>{o.invoice_no} - {o.nama_order}</option> ))} </select> </div> <button onClick={() => { const o = orders.find(x => x.id === selectedHppOrderId); if (!o) return; const initialItems = o.hpp_items && o.hpp_items.length > 0 ? [...o.hpp_items] : [ { id: Date.now() + 1, nama: `Biaya Bahan Baku`, nominal: 35000 }, { id: Date.now() + 2, nama: `Biaya Sablon/Printing`, nominal: 15000 }, { id: Date.now() + 3, nama: `Upah CMT Borongan`, nominal: 20000 }, { id: Date.now() + 4, nama: `Biaya Overhead (BOP)`, nominal: 5000 }, ]; const totalBiaya = initialItems.reduce((acc, curr) => acc + (curr.nominal * o.jumlah_pcs), 0); const nilaiJual = o.total_harga; const laba = nilaiJual - totalBiaya; const margin = (laba / (nilaiJual || 1)) * 100; setHppResult({ o, items: initialItems, totalBiaya, nilaiJual, laba, margin }); }} className="w-full bg-black hover:bg-gray-800 text-white font-bold text-xs py-3 rounded-xl mt-4 transition-colors">LOAD SPK KE KALKULATOR</button> </div> <div className="md:col-span-2 border border-black rounded-2xl p-0 overflow-hidden text-left flex flex-col min-h-[200px] bg-white"> {!hppResult ? ( <div className="flex flex-col items-center justify-center p-12 h-full bg-white/50"> <Factory className="w-12 h-12 text-black mb-3" /> <p className="text-xs font-semibold text-black max-w-sm text-center">Pilih Project SPK di samping untuk mensimulasikan dan mengelola rincian Harga Pokok Produksi secara akurat.</p> </div> ) : ( <div className="p-6 flex flex-col h-full"> <div className="flex justify-between items-start mb-6 border-b border-black pb-4"> <div> <h3 className="font-extrabold text-black uppercase tracking-wider">{hppResult.o.nama_order}</h3> <p className="text-xs font-semibold text-black mt-1">{hppResult.o.jumlah_pcs} Pcs • {hppResult.o.jenis_produk}</p> </div> <div className="text-right"> <div className="text-[10px] font-black uppercase text-black">Total Nilai Project</div> <div className="text-lg font-mono font-black text-black">Rp {hppResult.nilaiJual.toLocaleString('id-ID')}</div> </div> </div> <div className="space-y-3 mb-4 flex-grow"> {hppResult.items.map((item: any, i: number) => ( <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white rounded-lg border border-black gap-2"> <div className="flex-1 w-full flex items-center pr-4"> <input className="block w-full bg-transparent border-b border-dashed border-black focus:border-black outline-none text-xs font-bold text-black px-1 py-1" value={item.nama} onChange={(e) => { const newItems = [...hppResult.items]; newItems[i].nama = e.target.value; const totalBiaya = newItems.reduce((acc, curr) => acc + (curr.nominal * hppResult.o.jumlah_pcs), 0); const laba = hppResult.nilaiJual - totalBiaya; const margin = (laba / (hppResult.nilaiJual || 1)) * 100; setHppResult({ ...hppResult, items: newItems, totalBiaya, laba, margin }); }} /> </div> <div className="flex items-center gap-2"> <div className="flex flex-col items-end mr-2"> <div className="text-[9px] font-bold text-black uppercase tracking-wider mb-1">Harga / Pcs</div> <div className="flex items-center gap-1"> <span className="text-xs font-bold text-black">Rp</span> <input type="number" className="w-20 sm:w-24 bg-white border border-black rounded px-2 py-1 text-xs font-mono font-black text-black outline-none focus:border-black text-right" value={item.nominal || ''} onChange={(e) => { const newItems = [...hppResult.items]; newItems[i].nominal = parseFloat(e.target.value) || 0; const totalBiaya = newItems.reduce((acc, curr) => acc + (curr.nominal * hppResult.o.jumlah_pcs), 0); const laba = hppResult.nilaiJual - totalBiaya; const margin = (laba / (hppResult.nilaiJual || 1)) * 100; setHppResult({ ...hppResult, items: newItems, totalBiaya, laba, margin }); }} /> </div> </div> <div className="flex flex-col items-end mr-4 min-w-[80px]"> <div className="text-[9px] font-bold text-black uppercase tracking-wider mb-1">Subtotal</div> <div className="text-xs font-mono font-black text-black"> Rp {(item.nominal * hppResult.o.jumlah_pcs).toLocaleString('id-ID')} </div> </div> <button onClick={() => { const newItems = hppResult.items.filter((_:any, idx:number) => idx !== i); const totalBiaya = newItems.reduce((acc: number, curr: any) => acc + (curr.nominal * hppResult.o.jumlah_pcs), 0); const laba = hppResult.nilaiJual - totalBiaya; const margin = (laba / (hppResult.nilaiJual || 1)) * 100; setHppResult({ ...hppResult, items: newItems, totalBiaya, laba, margin }); }} className="p-1 hover:bg-white text-black rounded transition-colors self-end mb-1"><Trash2 className="w-4 h-4"/></button> </div> </div> ))} <button onClick={() => { const newItems = [...hppResult.items, {id: Date.now(), nama: 'Biaya Baru', nominal: 0}]; setHppResult({ ...hppResult, items: newItems }); }} className="text-[10px] w-full py-2.5 border border-dashed border-black rounded-lg text-black font-bold hover:bg-white uppercase tracking-wider transition-colors mt-2"> + Tambah Komponen Biaya </button> </div> <div className="pt-4 border-t border-black flex justify-between items-end mt-auto"> <div> <p className="text-[10px] font-black uppercase text-black tracking-wider">Gross Profit (Laba Kotor)</p> <p className="text-xl font-mono font-black text-black mt-1">Rp {hppResult.laba.toLocaleString('id-ID')}</p> </div> <div className="text-right flex flex-col items-end gap-2"> <div className="bg-white text-black px-3 py-1 rounded-full text-xs font-black"> Margin: {hppResult.margin.toFixed(1)}% </div> <button onClick={() => { const updatedOrders = orders.map(o => o.id === hppResult.o.id ? { ...o, hpp_items: hppResult.items } : o); syncData(transactions, updatedOrders, orderItems, payrolls, hutangs); alert('Data HPP berhasil disimpan!'); }} className="bg-black hover:bg-gray-800 text-white font-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg transition-colors"> Simpan HPP </button> </div> </div> </div> )} </div> </div> </div> </div> )} {/* Tab Inventory */} {activeTab === 'inventory' && ( <div className="space-y-6 animate-in fade-in duration-300"> <div className="bg-white p-8 rounded-3xl shadow-xl border border-black"> <div className="flex items-center gap-3 mb-6"> <div className="p-3 bg-white text-black"> <Rocket className="w-6 h-6" /> </div> <div> <h2 className="text-xl font-black text-black tracking-tight">Manajemen Nilai Inventaris (WIP & Majun)</h2> <p className="text-sm font-medium text-black">Valuasi stok bahan sisa, barang setengah jadi (Work In Progress), dan produk finish (Stock).</p> </div> </div>            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <HighlightCard
+                title="Nilai Bahan Baku (Kain/Rib)"
+                amount={12500000}
+                color="border-l-4 border-l-teal-500"
+                icon={Wallet}
+              />
+              <HighlightCard
+                title="Nilai Work in Progress (WIP)"
+                amount={orders
+                  .filter((o) => o.status_tracking === "Produksi" || o.status_tracking === "Jait")
+                  .reduce((acc, o) => acc + o.jumlah_pcs * 75000, 0)}
+                color="border-l-4 border-l-indigo-400"
+                icon={Factory}
+              />
+              <HighlightCard
+                title="Est. Nilai Sisa Kain / Majun"
+                amount={750000}
+                color="border-l-4 border-l-slate-400"
+                icon={Trash}
+              />
+            </div> <div className="mt-8 border border-black rounded-2xl overflow-hidden"> <table className="w-full text-sm text-left border-collapse"> <thead> <tr className="bg-white text-black text-[10px] uppercase tracking-widest border-b border-black"> <th className="p-4 font-extrabold w-48">Kategori</th> <th className="p-4 font-extrabold">Valuation Method</th> <th className="p-4 font-extrabold text-right">Nilai Rupiah</th> <th className="p-4 font-extrabold text-center">Status Opname</th> </tr> </thead> <tbody className="divide-y divide-slate-100"> <tr> <td className="p-4 font-bold text-xs">Kain Roll (Drifit, Cotton)</td> <td className="p-4 text-[10px] uppercase font-bold text-black">FIFO (First in First Out)</td> <td className="p-4 text-right font-mono text-xs font-black">Rp 12.500.000</td> <td className="p-4 text-center"><span className="text-[9px] bg-white px-2 py-1 rounded font-bold uppercase">Up to date</span></td> </tr> <tr> <td className="p-4 font-bold text-xs">Barang Setengah Jadi (Potongan, Sablonan)</td> <td className="p-4 text-[10px] uppercase font-bold text-black">Standard Costing</td> <td className="p-4 text-right font-mono text-xs font-black">Rp {orders.filter(o => o.status_tracking === 'Produksi' || o.status_tracking === 'Jait').reduce((acc, o) => acc + (o.jumlah_pcs * 75000), 0).toLocaleString('id-ID')}</td> <td className="p-4 text-center"><span className="text-[9px] bg-white px-2 py-1 rounded font-bold uppercase">Up to date</span></td> </tr> </tbody> </table> </div> </div> </div> )} {/* Tab Laporan Laba Rugi */} {activeTab === 'laporan' && ( <div className="space-y-6 animate-in fade-in duration-300"> <div className="bg-white p-8 rounded-3xl shadow-xl border border-black max-w-4xl mx-auto space-y-8"> <div className="text-center border-b pb-5 border-black"> <h2 className="text-lg font-black text-black uppercase tracking-widest">KAKAMI CONVECTION ERP</h2> <h3 className="text-2xl font-black text-black mt-1">Lembat Laba Rugi (P/L Statement)</h3> <p className="text-xs text-black font-bold uppercase tracking-wider mt-1">Periode Bulan: {bulan}</p> </div> <div className="space-y-6"> <div> <h4 className="text-xs font-black text-black uppercase tracking-widest border-b pb-1">1. Pendapatan Usaha (Revenue)</h4> <div className="mt-3 space-y-2"> <div className="flex justify-between items-center text-xs"> <span className="font-semibold text-black pl-4">Penerimaan Pelunasan & DP Pelanggan</span> <span className="font-bold text-black font-mono">Rp {masuk.toLocaleString('id-ID')}</span> </div> <div className="flex justify-between items-center text-xs border-t border-black pt-2 font-black"> <span className="text-black pl-4">TOTAL PENDAPATAN</span> <span className="text-black font-mono">Rp {masuk.toLocaleString('id-ID')}</span> </div> </div> </div> <div> <h4 className="text-xs font-black text-black uppercase tracking-widest border-b pb-1">2. Biaya & Pengeluaran (Expenses)</h4> <div className="mt-3 space-y-2"> {/* Unique active categories of expenses */} {Array.from(new Set(filteredTransactions.filter((t) => t.jenis === 'Pengeluaran').map((t) => t.kategori))).map((cat) => { const amount = filteredTransactions.filter((t) => t.jenis === 'Pengeluaran' && t.kategori === cat).reduce((sum, current) => sum + current.nominal, 0); return ( <div key={cat} className="flex justify-between items-center text-xs text-black pl-4 uppercase"> <span>Biaya {cat}</span> <span className="font-semibold text-black font-mono">Rp {amount.toLocaleString('id-ID')}</span> </div> ); })} <div className="flex justify-between items-center text-xs border-t border-black pt-2 font-black"> <span className="text-black pl-4">TOTAL BIAYA UTAMA</span> <span className="text-black font-mono">Rp {keluar.toLocaleString('id-ID')}</span> </div> </div> </div> <div className="border-t-2 border-double border-black pt-6"> <div className={`p-4 rounded-2xl flex justify-between items-center ${saldo >= 0 ? 'bg-white text-black' : 'bg-white text-black'}`}> <div> <h4 className="text-sm font-black uppercase tracking-wider">{saldo >= 0 ? 'LABA BERSIH OPERASIONAL' : 'RUGI OPERASIONAL'}</h4> <p className="text-[10px] opacity-80 mt-1">Laba Bersih dihitung dari Total IN dikurangi Total OUT terkini.</p> </div> <span className="text-xl font-black font-mono">Rp {saldo.toLocaleString('id-ID')}</span> </div> </div> </div> </div> </div> )} </div> {isHutangModalOpen && ( <div className="fixed inset-0 bg-white backdrop-blur-sm z-[100] flex items-center justify-center p-4"> <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"> <h3 className="text-lg font-black text-black uppercase mb-4">{hutangForm.id ? 'Edit Tagihan' : 'Tambah Tagihan'} Pemasok</h3> <div className="space-y-4"> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Nama Supplier</label> <input value={hutangForm.nama_supplier || ''} onChange={(e) => setHutangForm({...hutangForm, nama_supplier: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" placeholder="Toko Kain Makmur" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Nominal Tagihan (Rp)</label> <input type="number" value={hutangForm.nominal || ''} onChange={(e) => setHutangForm({...hutangForm, nominal: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none font-mono" placeholder="250000" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Jatuh Tempo</label> <input type="date" value={hutangForm.jatuh_tempo || ''} onChange={(e) => setHutangForm({...hutangForm, jatuh_tempo: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Keterangan / Notes</label> <input value={hutangForm.keterangan || ''} onChange={(e) => setHutangForm({...hutangForm, keterangan: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" placeholder="Bahan drill kemeja 2 roll" /> </div> {hutangForm.id && ( <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Status Pembayaran</label> <select value={hutangForm.status || 'Belum Lunas'} onChange={(e) => setHutangForm({...hutangForm, status: e.target.value as 'Lunas'|'Belum Lunas'})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none"> <option value="Belum Lunas">Belum Lunas</option> <option value="Lunas">Lunas</option> </select> </div> )} </div> <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-black"> <button onClick={() => setIsHutangModalOpen(false)} className="px-5 py-2.5 rounded-xl text-black font-bold text-xs uppercase hover:bg-white transition-colors">Batal</button> <button onClick={handleSaveHutang} className="px-5 py-2.5 rounded-xl bg-black text-white font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors shadow-lg">Simpan</button> </div> </div> </div> )} {isTxModalOpen && ( <div className="fixed inset-0 bg-white backdrop-blur-sm z-[100] flex items-center justify-center p-4"> <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"> <h3 className="text-lg font-black text-black uppercase mb-4">Edit Jurnal (Kas)</h3> <div className="space-y-4"> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Jenis</label> <select value={txForm.jenis || 'Pemasukan'} onChange={(e) => setTxForm({...txForm, jenis: e.target.value as 'Pemasukan'|'Pengeluaran'})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none"> <option value="Pemasukan">Pemasukan (IN)</option> <option value="Pengeluaran">Pengeluaran (OUT)</option> </select> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Kategori</label> <input value={txForm.kategori || ''} onChange={(e) => setTxForm({...txForm, kategori: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Nominal (Rp)</label> <input type="number" value={txForm.nominal || ''} onChange={(e) => setTxForm({...txForm, nominal: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none font-mono" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Tanggal</label> <input type="date" value={txForm.tanggal || ''} onChange={(e) => setTxForm({...txForm, tanggal: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" /> </div> <div> <label className="text-[10px] uppercase font-bold text-black mb-1 block">Keterangan / Notes</label> <input value={txForm.keterangan || ''} onChange={(e) => setTxForm({...txForm, keterangan: e.target.value})} className="w-full border border-black bg-white rounded-xl p-3 text-sm font-semibold outline-none" /> </div> </div> <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-black"> <button onClick={() => setIsTxModalOpen(false)} className="px-5 py-2.5 rounded-xl text-black font-bold text-xs uppercase hover:bg-white transition-colors">Batal</button> <button onClick={handleSaveTx} className="px-5 py-2.5 rounded-xl bg-black text-white font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors shadow-lg">Update</button> </div> </div> </div> )} </div> );
 };
-
-const HighlightCard = ({ title, amount, color }: { title: string; amount: number; color: string }) => (
-  <div className={`bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-md border border-slate-200/60 dark:border-slate-700/60 border-l-8 ${color} hover:-translate-y-1 transition-all duration-300`}>
-    <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{title}</h3>
-    <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 tracking-tight">Rp {amount.toLocaleString('id-ID')}</p>
-  </div>
-);
-
 export default Keuangan;

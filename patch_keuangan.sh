@@ -1,0 +1,2 @@
+sed -i 's/  Hutang,/  Hutang,\n  getStoredMonth,\n  setStoredMonth,/' src/pages/Keuangan.tsx
+sed -i 's/const \[bulan, setBulan\] = useState('\''2026-06'\'');/const [bulan, setBulanState] = useState(getStoredMonth());\n  const setBulan = (val: string) => {\n    setBulanState(val);\n    setStoredMonth(val);\n  };/' src/pages/Keuangan.tsx

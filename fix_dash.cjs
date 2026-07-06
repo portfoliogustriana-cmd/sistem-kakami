@@ -1,0 +1,25 @@
+const fs = require('fs');
+let d = fs.readFileSync('src/pages/Dashboard.tsx', 'utf8');
+d = d.replace(/\/\/ Filtered lists based on month /g, '/* Filtered lists based on month */\n');
+d = d.replace(/\/\/ --- Calculations --- \/\/ 1\. Finance Metrics /g, '/* --- Calculations --- */\n/* 1. Finance Metrics */\n');
+d = d.replace(/\/\/ 2\. Tracking Stats /g, '/* 2. Tracking Stats */\n');
+d = d.replace(/\/\/ 3\. SPK Sizing Progress Alert \(Items count < Ordered pcs\) /g, '/* 3. SPK Sizing Progress Alert */\n');
+d = d.replace(/\/\/ 4\. Top 5 Customers /g, '/* 4. Top 5 Customers */\n');
+d = d.replace(/\/\/ 5\. Overdue \/ Due Receivables \(Where status is not Lunas, and deadline_kerja is today or past\) /g, '/* 5. Overdue / Due Receivables */\n');
+d = d.replace(/\/\/ hardcoding reference date for realistic view /g, '/* hardcoding reference date for realistic view */\n');
+d = d.replace(/\/\/ Header Glassmorphism /g, '/* Header Glassmorphism */\n');
+d = d.replace(/\/\/ 5 Metrics Cards /g, '/* 5 Metrics Cards */\n');
+d = d.replace(/\/\/ Pemasukan /g, '/* Pemasukan */\n');
+d = d.replace(/\/\/ Pengeluaran /g, '/* Pengeluaran */\n');
+d = d.replace(/\/\/ Profit Status /g, '/* Profit Status */\n');
+d = d.replace(/\/\/ Omset /g, '/* Omset */\n');
+d = d.replace(/\/\/ Volume Produksi /g, '/* Volume Produksi */\n');
+d = d.replace(/\/\/ Grid Content /g, '/* Grid Content */\n');
+d = d.replace(/\/\/ Left Col \(Logistics & SPK Alerts\) /g, '/* Left Col (Logistics & SPK Alerts) */\n');
+d = d.replace(/\/\/ Logistics Tracking Radar /g, '/* Logistics Tracking Radar */\n');
+d = d.replace(/\/\/ SPK alerts /g, '/* SPK alerts */\n');
+d = d.replace(/\/\/ Right Col \(Klients Loyal & Overdue Piutang\) /g, '/* Right Col (Klients Loyal & Overdue Piutang) */\n');
+d = d.replace(/\/\/ Top 5 Clients /g, '/* Top 5 Clients */\n');
+d = d.replace(/\/\/ Piutang Overdue Target /g, '/* Piutang Overdue Target */\n');
+
+fs.writeFileSync('src/pages/Dashboard.tsx', d);
